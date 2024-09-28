@@ -123,9 +123,6 @@ class Session:
                 f'Error creating controller. Please check Docker is running and visit `{TROUBLESHOOTING_URL}` for more debugging information..'
             )
             return
-        self.agent_session.event_stream.add_event(
-            ChangeAgentStateAction(AgentState.INIT), EventSource.USER
-        )
 
     async def on_event(self, event: Event):
         """Callback function for events that mainly come from the agent.
@@ -165,6 +162,9 @@ class Session:
                         'Model does not support image upload, change to a different model or try without an image.'
                     )
                     return
+        asyncio.run_coroutine_threadsafe(self._add_event(event, EventSource.USER), self.agent_session.loop) # type: ignore
+
+    async def _add_event(self, event, event_source):
         self.agent_session.event_stream.add_event(event, EventSource.USER)
 
     async def send(self, data: dict[str, object]) -> bool:
@@ -190,6 +190,10 @@ class Session:
         """Sends a message to the client."""
         return await self.send({'message': message})
 
+    async def send_status_message(self, message: str) -> bool:
+        """Sends a status message to the client."""
+        return await self.send({'status': message})
+
     def update_connection(self, ws: WebSocket):
         self.websocket = ws
         self.is_alive = True
@@ -205,4 +209,4 @@ class Session:
     def queue_status_message(self, message: str):
         """Queues a status message to be sent asynchronously."""
         # Ensure the coroutine runs in the main event loop
-        asyncio.run_coroutine_threadsafe(self.send_message(message), self.loop)
+        asyncio.run_coroutine_threadsafe(self.send_status_message(message), self.loop)
